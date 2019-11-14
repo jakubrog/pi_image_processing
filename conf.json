@@ -1,0 +1,17 @@
+{
+  "front_assist": {
+      "acceleration": 5.0,
+      "reaction_time": 1.0
+  },
+  "blindspot":{
+      "minimum_distance": 12
+  },
+  "drowssines_detection":{
+      "ratio": 0.25,
+      "closed_eyes_frames": 3
+  },
+  "configuration":{
+      "debbuging": true,
+      "alarm_time": 1
+  }
+}
