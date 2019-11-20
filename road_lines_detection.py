@@ -15,6 +15,8 @@ def draw_lines(img, lines, color=[255, 0, 0], thickness=10):
     img = np.copy(img)
     line_img = np.zeros_like(img)
 
+
+
     for line in lines:
         for x1, y1, x2, y2 in line:
             if x1 < img_center and x2 < img_center:
