@@ -12,21 +12,38 @@ import imutils
 import time
 import dlib
 import cv2
+import json
 
-# pins numbers
-TRIG=16
-ECHO=12
-LED = 40
-BUZZER_PIN = 38
+# TODO:
+# 	ograniczenie czasu alarmu
+# 	obsluga wlacznikow
+# 	dodac debuggowanie, if DEBUGOWANIE: show some info, display video
+#	lepsze zapalanie diod i uruchamianie alarmu w front assist
+# 	po wlaczeniu kierunkowskazu alarm
+#	refaktoring nazw
+# 	komentarze
+
 
 # configuration
-EYE_AR_THRESH = 0.25
-EYE_AR_CONSEC_FRAMES = 3
-MINIMUM_DISTANCE = 12
+with open("conf.json", "r") as conf_file:
+	data = conf_file.read()
+values = json.loads(data)
+
+EYE_AR_THRESH = values["drowssines_detection"]["ratio"]
+EYE_AR_CONSEC_FRAMES = values["drowssines_detection"]["closed_eyes_frames"]
+MINIMUM_DISTANCE = values["blid_spot"]["minimum_distance"]
+DEBBUGING = values["configuration"]["debbuging"]
+ALARM_TIME = values["configuration"]["alarm_time"]
+ACCELERATION = values["front_assist"]["acceleration"]
+REACTION_TIME = values["front_assist"]["reaction_time"]
 COUNTER = 0
-
-
+# pins numbers
+TRIG = 16
+ECHO = 12
+LED = 40
+BUZZER_PIN = 38
 ALARM_ON = False
+
 
 def blind_spot():
     dist = distance()
@@ -52,7 +69,6 @@ def distance():
 	constDivider = 1000000/58
 	distance = int(signalDelay * constDivider)
 	return distance
-
 
 
 def init_pins():
@@ -127,9 +143,8 @@ print("[INFO] starting video stream thread...")
 print("Detection started")
 # loop over frames from the video stream
 while True:
-	s0 = distance()
-	print(s0)
-	t0 = time.time()
+	starting_distance = distance()
+ 	starting_time = time.time()
 	try:
     	# grab the frame from the threaded video file stream, resize
     	# it, and convert it to grayscale
@@ -202,18 +217,21 @@ while True:
 
     		# cv2.putText(frame, "EAR: {:.3f}".format(ear), (300, 30),
     		# cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-		t1 = time.time()
-		s1 = distance()
-		v = (s0-s1)/(t1-t0)
-		a = 5
-		sh = v/(2*a)
-		tr = 1
-		if (sh + 1 * v) > s1:
+
+		current_time = time.time()
+		current_distance = distance()
+
+		current_speed = (starting_distance - current_distance) / (current_time - starting_time)
+
+		breaking_distance = current_speed / (2 * ACCELERATION)
+
+		if (breaking_distance + REACTION_TIME * current_speed) > current_distance:
 			GPIO.output(LED, 1)
 		else:
 			GPIO.output(LED, 0)
+
     	#blind_spot()
-		#
+
 	except:
 		cv2.destroyAllWindows()
 		GPIO.cleanup()
