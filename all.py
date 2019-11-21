@@ -29,39 +29,42 @@ with open("conf.json", "r") as conf_file:
 	data = conf_file.read()
 values = json.loads(data)
 
+with open("pins.json", "r") as conf_file:
+	data = conf_file.read()
+gpio = json.loads(data)
+
+
 EYE_AR_THRESH = values["drowssines_detection"]["ratio"]
 EYE_AR_CONSEC_FRAMES = values["drowssines_detection"]["closed_eyes_frames"]
-MINIMUM_DISTANCE = values["blid_spot"]["minimum_distance"]
+MINIMUM_DISTANCE = values["blind_spot"]["minimum_distance"]
 DEBBUGING = values["configuration"]["debbuging"]
 ALARM_TIME = values["configuration"]["alarm_time"]
 ACCELERATION = values["front_assist"]["acceleration"]
 REACTION_TIME = values["front_assist"]["reaction_time"]
 COUNTER = 0
-# pins numbers
-TRIG = 16
-ECHO = 12
-LED = 40
-BUZZER_PIN = 38
 ALARM_ON = False
+FRONT_TRIG = gpio["front_assist"]["trigger"]
+FRONT_ECHO = gpio["front_assist"]["echo"]
 
 
 def blind_spot():
-    dist = distance()
+    dist = distance(gpio["blind_spot"]["trigger"], gpio["blind_spot"]["echo"])
     if(dist < MINIMUM_DISTANCE):
-        GPIO.output(LED, True)
+        GPIO.output(gpio["blind_spot"]["led"], True)
     else:
-        GPIO.output(LED, False)
+        GPIO.output(gpio["blind_spot"]["led"], False)
+	print(dist)
 
-def distance():
-	GPIO.output(TRIG, True)
+def distance(trigger, echo):
+	GPIO.output(trigger, True)
 	time.sleep(0.00001)
-	GPIO.output(TRIG, False)
+	GPIO.output(trigger, False)
     #Wait for HIGH on ECHO
-	while GPIO.input(ECHO) == 0:
+	while GPIO.input(echo) == 0:
 		pulse_start = time.time()
 
     #wait for LOW again
-	while GPIO.input(ECHO) == 1:
+	while GPIO.input(echo) == 1:
 		pulse_end = time.time()
 		signalDelay = pulse_end - pulse_start
 
@@ -74,16 +77,20 @@ def distance():
 def init_pins():
 	GPIO.setmode(GPIO.BOARD)
 	GPIO.setwarnings(False)
-	GPIO.setup(BUZZER_PIN, GPIO.OUT)
-	GPIO.setup(TRIG, GPIO.OUT)
-	GPIO.setup(ECHO, GPIO.IN)
-	GPIO.setup(LED, GPIO.OUT)
+
+	for section, value in gpio.items():
+		for name, pin in value.items():
+			if name == "echo" or section == "buttons":
+				GPIO.setup(pin, GPIO.IN)
+			else:
+				GPIO.setup(pin, GPIO.OUT)
+
 
 def buzzer_on():
-	GPIO.output(BUZZER_PIN, 1)
+	GPIO.output(gpio["sound"]["buzzer"], 1)
 
 def buzzer_off():
-	GPIO.output(BUZZER_PIN, 0)
+	GPIO.output(gpio["sound"]["buzzer"], 0)
 
 # compute and return the euclidean distance between the two points
 def euclidean_dist(pointA, pointB):
@@ -104,17 +111,9 @@ def eye_aspect_ratio(eye):
 	# return the eye aspect ratio
 	return ear
 
-# construct the argument parse and parse the arguments
-args_parser = argparse.ArgumentParser()
-args_parser.add_argument("-v", "--verbosity", help = "Increase output verbosity")
-args = args_parser.parse_args()
 
-if args.verbosity:
-	print('Verbosity turned on')
-
-# 	help="get more info")
-# args = vars(ap.parse_args())
-
+if DEBBUGING:
+	print('Debugging turned on')
 
 # load OpenCV's Haar cascade for face detection (which is faster than
 # dlib's built-in HOG detector, but less accurate), then create the
@@ -143,8 +142,9 @@ print("[INFO] starting video stream thread...")
 print("Detection started")
 # loop over frames from the video stream
 while True:
-	starting_distance = distance()
- 	starting_time = time.time()
+	starting_distance = distance(FRONT_TRIG, FRONT_ECHO)
+	starting_time = time.time()
+	blind_spot()
 	try:
     	# grab the frame from the threaded video file stream, resize
     	# it, and convert it to grayscale
@@ -219,16 +219,16 @@ while True:
     		# cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
 		current_time = time.time()
-		current_distance = distance()
+		current_distance = distance(FRONT_TRIG, FRONT_ECHO)
 
 		current_speed = (starting_distance - current_distance) / (current_time - starting_time)
 
 		breaking_distance = current_speed / (2 * ACCELERATION)
 
 		if (breaking_distance + REACTION_TIME * current_speed) > current_distance:
-			GPIO.output(LED, 1)
+			GPIO.output(gpio["front_assist"]["led"], 1)
 		else:
-			GPIO.output(LED, 0)
+			GPIO.output(gpio["front_assist"]["led"], 0)
 
     	#blind_spot()
 

@@ -4,18 +4,15 @@ import numpy as np
 import cv2
 
 
-def draw_lines(img, lines, color=[255, 0, 0], thickness=10):
+def draw_lines(img, lines, color=[255, 0, 0], thickness=5):
     if lines is None:
         return
-
 
     line_dict = {'left': [], 'right': []}
     img_center = img.shape[1]/2
 
     img = np.copy(img)
     line_img = np.zeros_like(img)
-
-
 
     for line in lines:
         for x1, y1, x2, y2 in line:
@@ -62,7 +59,7 @@ def process(img):
         theta=np.pi / 60,
         threshold=100,
         lines=np.array([]),
-        minLineLength=100,
+        minLineLength=50,
         maxLineGap=50
     )
 
@@ -73,11 +70,13 @@ def process(img):
 
 def main():
     #cap = VideoStream(src=0).start()
-    cap = cv2.VideoCapture(r'C:\Users\Mateusz\pi_image_processing\video\solidWhiteRight.mp4')
-    while cap.isOpened():
-        ret, frame = cap.read()
-        frame = process(frame)
-        cv2.imshow('frame', frame)
+    cap = cv2.imread(r'/Users/jakubrog/agh/pi_image_processing/images/solidWhiteCurve.jpg')
+    frame = process(cap)
+
+        # ret, frame = cap.read()
+    frame = process(frame)
+    cv2.imshow('frame', frame)
+    while True:
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     cap.release()

@@ -1,0 +1,29 @@
+{
+  "buttons":{
+      "front_assist": 3,
+      "blind_spot": 5,
+      "drowssines_detection": 7
+  },
+
+  "sound":{
+      "buzzer": 26
+  },
+
+  "blind_spot":{
+      "echo": 12,
+      "trigger": 16,
+      "led": 18,
+      "enable": 22
+  },
+
+  "drowssines_detection":{
+     "led": 24,
+     "enable": 32
+ },
+
+  "front_assist":{
+      "led": 36,
+      "trigger":  38,
+      "echo": 40
+  }
+}
