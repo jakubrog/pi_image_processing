@@ -16,10 +16,8 @@ import json
 
 # TODO:
 # 	ograniczenie czasu alarmu
-# 	obsluga wlacznikow
 # 	dodac debuggowanie, if DEBUGOWANIE: show some info, display video
 #	lepsze zapalanie diod i uruchamianie alarmu w front assist
-# 	po wlaczeniu kierunkowskazu alarm
 #	refaktoring nazw
 # 	komentarze
 
@@ -43,9 +41,18 @@ ACCELERATION = values["front_assist"]["acceleration"]
 REACTION_TIME = values["front_assist"]["reaction_time"]
 COUNTER = 0
 ALARM_ON = False
+
 FRONT_TRIG = gpio["front_assist"]["trigger"]
 FRONT_ECHO = gpio["front_assist"]["echo"]
 
+FRONT_ASSIST_STATE = gpio["buttons"]["front_assist"]
+BLID_SPOT_STATE = gpio["buttons"]["front_assist"]
+DROW_DET_STATE = gpio["buttons"]["front_assist"]
+FRONT_ASSIST_ENABLE = True
+BLIND_SPORT_ENABLE = True
+DROW_DET_ENABLE = True
+BUTTON_COUNTER = 0
+BUTTON_LIMIT = 30
 
 def blind_spot():
     dist = distance(gpio["blind_spot"]["trigger"], gpio["blind_spot"]["echo"])
@@ -84,6 +91,9 @@ def init_pins():
 				GPIO.setup(pin, GPIO.IN)
 			else:
 				GPIO.setup(pin, GPIO.OUT)
+	GPIO.output(gpio["blind_spot"]["enable"], BLIND_SPORT_ENABLE)
+	GPIO.output(gpio["front_assist"]["enable"], FRONT_ASSIST_STATE)
+	GPIO.output(gpio["drowssines_detection"]["enable"], DROW_DET_ENABLE)
 
 
 def buzzer_on():
@@ -110,6 +120,28 @@ def eye_aspect_ratio(eye):
 
 	# return the eye aspect ratio
 	return ear
+
+def read_state():
+	if GPIO.input(FRONT_ASSIST_STATE):
+		BUTTON_COUNTER += 1
+		if BUTTON_COUNTER > BUTTON_LIMIT:
+			BUTTON_COUNTER = 0
+			GPIO.output(gpio["front_assist"]["enable"], not FRONT_ASSIST_STATE)
+			FRONT_ASSIST_ENABLE = not FRONT_ASSIST_ENABLE
+
+	if GPIO.input(BLID_SPOT_STATE):
+		BUTTON_COUNTER += 1
+		if BUTTON_COUNTER > BUTTON_LIMIT:
+			BUTTON_COUNTER = 0
+			GPIO.output(gpio["blind_spot"]["enable"], not BLIND_SPORT_ENABLE)
+			BLIND_SPORT_ENABLE = not BLIND_SPORT_ENABLE
+
+	if GPIO.input(DROW_DET_STATE):
+		BUTTON_COUNTER += 1
+		if BUTTON_COUNTER > BUTTON_LIMIT:
+			BUTTON_COUNTER = 0
+			GPIO.output(gpio["drowssines_detection"]["enable"], not DROW_DET_ENABLE)
+			DROW_DET_ENABLE = not DROW_DET_ENABLE
 
 
 if DEBBUGING:
@@ -144,72 +176,75 @@ print("Detection started")
 while True:
 	starting_distance = distance(FRONT_TRIG, FRONT_ECHO)
 	starting_time = time.time()
-	blind_spot()
+	read_state()
+
 	try:
     	# grab the frame from the threaded video file stream, resize
     	# it, and convert it to grayscale
     	# channels)
+
 		frame = vs.read()
-		frame = imutils.resize(frame, width=400)
-		gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        if DROW_DET_ENABLE:
+    		frame = imutils.resize(frame, width=400)
+    		gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    	# detect faces in the grayscale frame
-		rects = detector.detectMultiScale(gray, scaleFactor=1.1,
-    		minNeighbors=5, minSize=(30, 30),
-    		flags=cv2.CASCADE_SCALE_IMAGE)
+        	# detect faces in the grayscale frame
+    		rects = detector.detectMultiScale(gray, scaleFactor=1.1,
+        		minNeighbors=5, minSize=(30, 30),
+        		flags=cv2.CASCADE_SCALE_IMAGE)
 
-    	# loop over the face detections
-		for (x, y, w, h) in rects:
-    		# construct a dlib rectangle object from the Haar cascade
-    		# bounding box
-			rect = dlib.rectangle(int(x), int(y), int(x + w),
-    			int(y + h))
+        	# loop over the face detections
+    		for (x, y, w, h) in rects:
+        		# construct a dlib rectangle object from the Haar cascade
+        		# bounding box
+    			rect = dlib.rectangle(int(x), int(y), int(x + w),
+        			int(y + h))
 
-    		# determine the facial landmarks for the face region, then
-    		# convert the facial landmark (x, y)-coordinates to a NumPy
-    		# array
-			shape = predictor(gray, rect)
-			shape = face_utils.shape_to_np(shape)
+        		# determine the facial landmarks for the face region, then
+        		# convert the facial landmark (x, y)-coordinates to a NumPy
+        		# array
+    			shape = predictor(gray, rect)
+    			shape = face_utils.shape_to_np(shape)
 
-    		# extract the left and right eye coordinates, then use the
-    		# coordinates to compute the eye aspect ratio for both eyes
-			leftEye = shape[lStart:lEnd]
-			rightEye = shape[rStart:rEnd]
-			leftEAR = eye_aspect_ratio(leftEye)
-			rightEAR = eye_aspect_ratio(rightEye)
+        		# extract the left and right eye coordinates, then use the
+        		# coordinates to compute the eye aspect ratio for both eyes
+    			leftEye = shape[lStart:lEnd]
+    			rightEye = shape[rStart:rEnd]
+    			leftEAR = eye_aspect_ratio(leftEye)
+    			rightEAR = eye_aspect_ratio(rightEye)
 
-    		# average the eye aspect ratio together for both eyes
-			ear = (leftEAR + rightEAR) / 2.0
+        		# average the eye aspect ratio together for both eyes
+    			ear = (leftEAR + rightEAR) / 2.0
 
-    		# compute the convex hull for the left and right eye, then
-    		# visualize each of the eyes
+        		# compute the convex hull for the left and right eye, then
+        		# visualize each of the eyes
 
-			leftEyeHull = cv2.convexHull(leftEye)
-			rightEyeHull = cv2.convexHull(rightEye)
+    			leftEyeHull = cv2.convexHull(leftEye)
+    			rightEyeHull = cv2.convexHull(rightEye)
 
-    		# check to see if the eye aspect ratio is below the blink
-    		# threshold, and if so, increment the blink frame counter
-			if ear < EYE_AR_THRESH:
-				COUNTER += 1
+        		# check to see if the eye aspect ratio is below the blink
+        		# threshold, and if so, increment the blink frame counter
+    			if ear < EYE_AR_THRESH:
+    				COUNTER += 1
 
-    			# if the eyes were closed for a sufficient number of
-    			# frames, then sound the alarm
-				if COUNTER >= EYE_AR_CONSEC_FRAMES:
-    				# if the alarm is not on, turn it on
-					if not ALARM_ON:
-						ALARM_ON = True
-						buzzer_on()
+        			# if the eyes were closed for a sufficient number of
+        			# frames, then sound the alarm
+    				if COUNTER >= EYE_AR_CONSEC_FRAMES:
+        				# if the alarm is not on, turn it on
+    					if not ALARM_ON:
+    						ALARM_ON = True
+    						buzzer_on()
 
-    				# draw an alarm on the frame
-    				# cv2.putText(frame, "DROWSINESS ALERT!", (10, 30),
-    				# 	cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+        				# draw an alarm on the frame
+        				# cv2.putText(frame, "DROWSINESS ALERT!", (10, 30),
+        				# 	cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
-    		# otherwise, the eye aspect ratio is not below the blink
-    		# threshold, so reset the counter and alarm
-			else:
-				COUNTER = 0
-				ALARM_ON = False
-				buzzer_off()
+        		# otherwise, the eye aspect ratio is not below the blink
+        		# threshold, so reset the counter and alarm
+    			else:
+    				COUNTER = 0
+    				ALARM_ON = False
+    				buzzer_off()
 
     		# draw the computed eye aspect ratio on the frame to help
     		# with debugging and setting the correct eye aspect ratio
@@ -217,20 +252,24 @@ while True:
 
     		# cv2.putText(frame, "EAR: {:.3f}".format(ear), (300, 30),
     		# cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+		if FRONT_ASSIST_ENABLE:
+    		current_time = time.time()
+    		current_distance = distance(FRONT_TRIG, FRONT_ECHO)
 
-		current_time = time.time()
-		current_distance = distance(FRONT_TRIG, FRONT_ECHO)
+    		current_speed = (starting_distance - current_distance) / (current_time - starting_time)
 
-		current_speed = (starting_distance - current_distance) / (current_time - starting_time)
+    		breaking_distance = current_speed / (2 * ACCELERATION)
 
-		breaking_distance = current_speed / (2 * ACCELERATION)
+    		if (breaking_distance + REACTION_TIME * current_speed) > current_distance:
+    			GPIO.output(gpio["front_assist"]["led"], 1)
+    		else:
+    			GPIO.output(gpio["front_assist"]["led"], 0)
 
-		if (breaking_distance + REACTION_TIME * current_speed) > current_distance:
-			GPIO.output(gpio["front_assist"]["led"], 1)
-		else:
-			GPIO.output(gpio["front_assist"]["led"], 0)
+        if BLIND_SPORT_ENABLE:
+            blind_spot()
 
-    	#blind_spot()
+
+
 
 	except:
 		cv2.destroyAllWindows()

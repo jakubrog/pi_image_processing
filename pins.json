@@ -6,24 +6,25 @@
   },
 
   "sound":{
-      "buzzer": 26
+      "buzzer": 18
   },
 
   "blind_spot":{
-      "echo": 12,
-      "trigger": 16,
-      "led": 18,
-      "enable": 22
+      "echo": 19,
+      "trigger": 21,
+      "led": 23,
+      "enable": 11
   },
 
   "drowssines_detection":{
      "led": 24,
-     "enable": 32
+     "enable": 13
  },
 
   "front_assist":{
       "led": 36,
       "trigger":  38,
-      "echo": 40
+      "echo": 40,
+      "enable": 15
   }
 }
