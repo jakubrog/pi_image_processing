@@ -5,7 +5,7 @@
 # import the necessary packages
 from imutils.video import VideoStream
 from imutils import face_utils
-from RPi import GPIO
+#from RPi import GPIO
 import numpy as np
 import argparse
 import imutils
@@ -20,6 +20,7 @@ EYE_AR_CONSEC_FRAMES = 3
 COUNTER = 0
 ALARM_ON = False
 
+'''
 def init_pins():
 	GPIO.setmode(GPIO.BOARD)
 	GPIO.setwarnings(False)
@@ -31,6 +32,7 @@ def buzzer_on():
 def buzzer_off():
 	GPIO.output(BUZZER_PIN, 0)
 
+'''
 # compute and return the euclidean distance between the two points
 def euclidean_dist(pointA, pointB):
 	return np.linalg.norm(pointA - pointB)
@@ -78,7 +80,7 @@ predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
 # start the video stream thread
 print('[INFO] pin init')
-init_pins()
+#init_pins()
 print("[INFO] starting video stream thread...")
 
 
@@ -145,7 +147,8 @@ while True:
 				# if the alarm is not on, turn it on
 				if not ALARM_ON:
 					ALARM_ON = True
-					buzzer_on()
+					print("alarmon")
+					#buzzer_on()
 
 				# draw an alarm on the frame
 				# cv2.putText(frame, "DROWSINESS ALERT!", (10, 30),
@@ -156,7 +159,8 @@ while True:
 		else:
 			COUNTER = 0
 			ALARM_ON = False
-			buzzer_off()
+			print("alarmoff")
+#			buzzer_off()
 
 		# draw the computed eye aspect ratio on the frame to help
 		# with debugging and setting the correct eye aspect ratio
