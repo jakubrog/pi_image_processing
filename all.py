@@ -5,7 +5,6 @@
 # import the necessary packages
 from imutils.video import VideoStream
 from imutils import face_utils
-from RPi import GPIO
 import numpy as np
 import argparse
 import imutils
@@ -13,6 +12,8 @@ import time
 import dlib
 import cv2
 import json
+import pins
+import values
 
 # TODO:
 # 	dodac debuggowanie, if DEBUGOWANIE: show some info, display video
@@ -21,61 +22,37 @@ import json
 # 	komentarze
 # drow det przycisk cos nie tak 
 
-
 # configuration
-with open("conf.json", "r") as conf_file:
-	data = conf_file.read()
-values = json.loads(data)
 
-with open("pins.json", "r") as conf_file:
-	data = conf_file.read()
-gpio = json.loads(data)
-
-
-EYE_AR_THRESH = values["drowssines_detection"]["ratio"]
-CLOSED_EYES_ALARM_FRAMES = values["drowssines_detection"]["closed_eyes_alarm_frames"]
-CLOSED_EYES_LED_FRAMES = values["drowssines_detection"]["closed_eyes_led_frames"]
-MINIMUM_DISTANCE = values["blind_spot"]["minimum_distance"]
-DEBBUGING = values["configuration"]["debbuging"]
-ALARM_TIME = values["configuration"]["alarm_time"]
-ACCELERATION = values["front_assist"]["acceleration"]
-REACTION_TIME = values["front_assist"]["reaction_time"]
-BUTTON_LIMIT = values["configuration"]["pushed_button_time"]
+FRONT_ASSIST_ENABLE = True
+BLIND_SPOT_ENABLE = True
+DROW_DET_ENABLE = True
+BUTTON_COUNTER = 0
 
 COUNTER = 0
 ALARM_ON = False
 LED_ON = False
 
-FRONT_TRIG = gpio["front_assist"]["trigger"]
-FRONT_ECHO = gpio["front_assist"]["echo"]
-
-FRONT_ASSIST_STATE = gpio["buttons"]["front_assist"]
-BLID_SPOT_STATE = gpio["buttons"]["blind_spot"]
-DROW_DET_STATE = gpio["buttons"]["drowssines_detection"]
-FRONT_ASSIST_ENABLE = True
-BLIND_SPORT_ENABLE = True
-DROW_DET_ENABLE = True
-BUTTON_COUNTER = 0
 
 
 def blind_spot():
-	dist = distance(gpio["blind_spot"]["trigger"], gpio["blind_spot"]["echo"])
-	if(dist < MINIMUM_DISTANCE):
-		GPIO.output(gpio["blind_spot"]["led"], True)
+	dist = distance(pins.BLIND_SPOT_TRIGGER, pins.BLIND_SPOT_ECHO)
+	if dist < values.MINIMUM_DISTANCE:
+		pins.blind_spot(True)
 	else:
-		GPIO.output(gpio["blind_spot"]["led"], False)
+		pins.blind_spot(False)
 
 
 def distance(trigger, echo):
-	GPIO.output(trigger, True)
-	time.sleep(0.00001)
-	GPIO.output(trigger, False)
-	#Wait for HIGH on ECHO
-	while GPIO.input(echo) == 0:
+
+
+	pins.init_distance_sensor(trigger)
+
+	while pins.read_state(echo) == 0:
 		pulse_start = time.time()
 
 	#wait for LOW again
-	while GPIO.input(echo) == 1:
+	while pins.read_state(echo) == 1:
 		pulse_end = time.time()
 		signalDelay = pulse_end - pulse_start
 
@@ -86,30 +63,11 @@ def distance(trigger, echo):
 
 
 def init_pins():
-	GPIO.cleanup()
-	GPIO.setmode(GPIO.BOARD)
-	GPIO.setwarnings(False)
+	pins.init()
+	pins.enable_blind_spot(BLIND_SPOT_ENABLE)
+	pins.enable_front_assist(FRONT_ASSIST_ENABLE)
+	pins.enable_drosiness_detection(DROW_DET_ENABLE)
 
-	for section, value in gpio.items():
-		for name, pin in value.items():
-			if name == "echo" or section == "buttons":
-				if section == "buttons":
-					GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-				else:
-					GPIO.setup(pin, GPIO.IN)
-			else:
-				GPIO.setup(pin, GPIO.OUT)
-	GPIO.setup(gpio["buttons"]["blind_spot"], GPIO.IN)
-	GPIO.output(gpio["blind_spot"]["enable"], BLIND_SPORT_ENABLE)
-	GPIO.output(gpio["front_assist"]["enable"], FRONT_ASSIST_ENABLE)
-	GPIO.output(gpio["drowssines_detection"]["enable"], DROW_DET_ENABLE)
-
-
-def buzzer_on():
-	GPIO.output(gpio["sound"]["buzzer"], 1)
-
-def buzzer_off():
-	GPIO.output(gpio["sound"]["buzzer"], 0)
 
 # compute and return the euclidean distance between the two points
 def euclidean_dist(pointA, pointB):
@@ -133,33 +91,32 @@ def eye_aspect_ratio(eye):
 def read_state():
 	global BUTTON_COUNTER
 	global FRONT_ASSIST_ENABLE
-	global BLIND_SPORT_ENABLE
+	global BLIND_SPOT_ENABLE
 	global DROW_DET_ENABLE
-	print(str(GPIO.input(FRONT_ASSIST_STATE)) + str(GPIO.input(BLID_SPOT_STATE)) + str(GPIO.input(DROW_DET_STATE)))
 
-	if not GPIO.input(FRONT_ASSIST_STATE):
+	if pins.front_assist_button():
 		BUTTON_COUNTER += 1
-		if BUTTON_COUNTER > BUTTON_LIMIT:
+		if BUTTON_COUNTER > values.BUTTON_LIMIT:
 			BUTTON_COUNTER = 0
-			GPIO.output(gpio["front_assist"]["enable"], not FRONT_ASSIST_ENABLE)
+			pins.enable_front_assist(not FRONT_ASSIST_ENABLE)
 			FRONT_ASSIST_ENABLE = not FRONT_ASSIST_ENABLE
 
-	if not GPIO.input(BLID_SPOT_STATE):
+	if pins.blind_spot_button():
 		BUTTON_COUNTER += 1
-		if BUTTON_COUNTER > BUTTON_LIMIT:
+		if BUTTON_COUNTER > values.BUTTON_LIMIT:
 			BUTTON_COUNTER = 0
-			GPIO.output(gpio["blind_spot"]["enable"], not BLIND_SPORT_ENABLE)
-			BLIND_SPORT_ENABLE = not BLIND_SPORT_ENABLE
+			pins.enable_blind_spot(not BLIND_SPOT_ENABLE)
+			BLIND_SPOT_ENABLE = not BLIND_SPOT_ENABLE
 
-	if not GPIO.input(DROW_DET_STATE):
+	if pins.drowsiness_detection_button():
 		BUTTON_COUNTER += 1
-		if BUTTON_COUNTER > BUTTON_LIMIT:
+		if BUTTON_COUNTER > values.BUTTON_LIMIT:
 			BUTTON_COUNTER = 0
-			GPIO.output(gpio["drowssines_detection"]["enable"], not DROW_DET_ENABLE)
+			pins.enable_drosiness_detection(not DROW_DET_ENABLE)
 			DROW_DET_ENABLE = not DROW_DET_ENABLE
 
 
-if DEBBUGING:
+if values.DEBBUGING:
 	print('[INFO] Debugging turned on')
 
 # load OpenCV's Haar cascade for face detection (which is faster than
@@ -183,7 +140,7 @@ print('[INFO] pin init')
 
 init_pins()
 
-if DEBBUGING:
+if values.DEBBUGING:
 	print("[INFO] starting video stream thread...")
 
 
@@ -192,7 +149,7 @@ if DEBBUGING:
 print("[INFO] Detection started")
 # loop over frames from the video stream
 while True:
-	starting_distance = distance(FRONT_TRIG, FRONT_ECHO)
+	starting_distance = distance(pins.FRONT_TRIG, pins.FRONT_ECHO)
 	starting_time = time.time()
 	read_state()
 
@@ -243,21 +200,21 @@ while True:
 
 				# check to see if the eye aspect ratio is below the blink
 				# threshold, and if so, increment the blink frame counter
-				if ear < EYE_AR_THRESH:
+				if ear < values.EYE_AR_THRESH:
 					COUNTER += 1
 
 					# if the eyes were closed for a sufficient number of
 					# frames, then sound the alarm
-					if COUNTER >= CLOSED_EYES_LED_FRAMES:
+					if COUNTER >= values.CLOSED_EYES_LED_FRAMES:
 						if not LED_ON:
-							GPIO.output(gpio["drowssines_detection"]["led"], True)
+							pins.drowsiness_detection(True)
 
 
-					if COUNTER >= CLOSED_EYES_ALARM_FRAMES:
+					if COUNTER >= values.CLOSED_EYES_ALARM_FRAMES:
 						# if the alarm is not on, turn it on
 						if not ALARM_ON:
 							ALARM_ON = True
-							buzzer_on()
+							pins.buzzer_on()
 
 
 
@@ -271,34 +228,34 @@ while True:
 					COUNTER = 0
 					ALARM_ON = False
 					LED_ON = False
-					buzzer_off()
-					GPIO.output(gpio["drowssines_detection"]["led"], False)
+					pins.buzzer_off()
+					pins.drowsiness_detection(False)
 
 			# draw the computed eye aspect ratio on the frame to help
 			# with debugging and setting the correct eye aspect ratio
 			# thresholds and frame counters
-			if DEBBUGING:
+			if values.DEBBUGING:
 				cv2.putText(frame, "EAR: {:.3f}".format(ear), (300, 30),
 				cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
 		if FRONT_ASSIST_ENABLE:
 			current_time = time.time()
-			current_distance = distance(FRONT_TRIG, FRONT_ECHO)
+			current_distance = distance(pins.FRONT_TRIG, pins.FRONT_ECHO)
 
 			current_speed = (starting_distance - current_distance) / (current_time - starting_time)
 
-			breaking_distance = current_speed / (2 * ACCELERATION)
+			breaking_distance = current_speed / (2 * values.ACCELERATION)
 
-			if (breaking_distance + REACTION_TIME * current_speed) > current_distance:
-				GPIO.output(gpio["front_assist"]["led"], 1)
+			if (breaking_distance + values.REACTION_TIME * current_speed) > current_distance:
+				pins.front_assist(1)
 			else:
-				GPIO.output(gpio["front_assist"]["led"], 0)
+				pins.front_assist(0)
 
-		if BLIND_SPORT_ENABLE:
+		if BLIND_SPOT_ENABLE:
 			blind_spot()
 
 	except:
 		cv2.destroyAllWindows()
-		GPIO.cleanup()
+		pins.gpio_cleanup()
 		vs.stop()
 		break
