@@ -8,10 +8,12 @@
   },
   "drowssines_detection":{
       "ratio": 0.25,
-      "closed_eyes_frames": 3
+      "closed_eyes_alarm_frames": 10,
+      "closed_eyes_led_frames": 4
   },
   "configuration":{
-      "debbuging": true,
-      "alarm_time": 1
+      "debbuging": false,
+      "alarm_time": 1,
+      "pushed_button_time": 10
   }
 }

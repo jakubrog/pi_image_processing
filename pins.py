@@ -1,4 +1,5 @@
 import json
+from
 
 with open("pins.json", "r") as conf_file:
 	data = conf_file.read()
@@ -6,12 +7,10 @@ gpio = json.loads(data)
 
 # print(gpio.values())
 
-for z, p in gpio.items():
-	if z != "buttons":
-		for x, y in p.items():
-			if x == "echo":
-				print("in")
-			else:
-				print("out")
-			print(x)
-			print(y)
+FRONT_ASSIST_STATE = gpio["buttons"]["front_assist"]
+BLID_SPOT_STATE = gpio["buttons"]["blind_spot"]
+DROW_DET_STATE = gpio["buttons"]["drowssines_detection"]
+
+print(FRONT_ASSIST_STATE)
+print(BLID_SPOT_STATE)
+print(DROW_DET_STATE)
