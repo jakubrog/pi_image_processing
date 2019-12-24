@@ -2,7 +2,6 @@ import json
 import time
 from RPi import GPIO
 
-from all import FRONT_ASSIST_ENABLE, BLIND_SPOT_ENABLE, DROW_DET_ENABLE
 
 with open("pins.json", "r") as conf_file:
 	data = conf_file.read()
@@ -44,12 +43,10 @@ def enable_front_assist(value):
 def enable_blind_spot(value):
 	GPIO.output(gpio["blind_spot"]["enable"], value)
 
-
 def enable_drosiness_detection(value):
 	GPIO.output(gpio["drowssines_detection"]["enable"], value)
 
 def init():
-	GPIO.cleanup()
 	GPIO.setmode(GPIO.BOARD)
 	GPIO.setwarnings(False)
 
@@ -91,4 +88,4 @@ def init_distance_sensor(trigger):
 	GPIO.output(trigger, False)
 
 def read_state(echo):
-	GPIO.input(echo)
+	return GPIO.input(echo)

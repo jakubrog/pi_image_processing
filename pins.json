@@ -17,14 +17,14 @@
   },
 
   "drowssines_detection":{
-     "led": 24,
+     "led": 29,
      "enable": 15
  },
 
   "front_assist":{
-      "led": 36,
+      "led": 40,
       "trigger":  38,
-      "echo": 40,
+      "echo": 36,
       "enable": 11
   }
 }

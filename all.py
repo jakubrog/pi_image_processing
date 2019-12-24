@@ -20,7 +20,7 @@ import values
 #	naprawa front assist
 #	refaktoring nazw
 # 	komentarze
-# drow det przycisk cos nie tak 
+# drow det przycisk cos nie tak
 
 # configuration
 
@@ -44,8 +44,6 @@ def blind_spot():
 
 
 def distance(trigger, echo):
-
-
 	pins.init_distance_sensor(trigger)
 
 	while pins.read_state(echo) == 0:
@@ -149,6 +147,7 @@ if values.DEBBUGING:
 print("[INFO] Detection started")
 # loop over frames from the video stream
 while True:
+	blind_spot()
 	starting_distance = distance(pins.FRONT_TRIG, pins.FRONT_ECHO)
 	starting_time = time.time()
 	read_state()
@@ -234,9 +233,9 @@ while True:
 			# draw the computed eye aspect ratio on the frame to help
 			# with debugging and setting the correct eye aspect ratio
 			# thresholds and frame counters
-			if values.DEBBUGING:
-				cv2.putText(frame, "EAR: {:.3f}".format(ear), (300, 30),
-				cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+			# if values.DEBBUGING:
+			# 	cv2.putText(frame, "EAR: {:.3f}".format(ear), (300, 30),
+			# 	cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
 		if FRONT_ASSIST_ENABLE:
 			current_time = time.time()
@@ -254,7 +253,7 @@ while True:
 		if BLIND_SPOT_ENABLE:
 			blind_spot()
 
-	except:
+	except ValueError:
 		cv2.destroyAllWindows()
 		pins.gpio_cleanup()
 		vs.stop()
