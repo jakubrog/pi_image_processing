@@ -19,7 +19,6 @@ DROW_DET_STATE = gpio["buttons"]["drowssines_detection"]
 BLIND_SPOT_TRIGGER = gpio["blind_spot"]["trigger"]
 BLIND_SPOT_ECHO = gpio["blind_spot"]["echo"]
 BLIND_SPOT_LED = gpio["blind_spot"]["led"]
-BLIND_SPOT_BUTTON = gpio["buttons"]["blind_spot"] # same as blind spot state
 DROWSINESS_DETECTION_PIN = gpio["drowssines_detection"]["led"]
 
 
@@ -29,13 +28,10 @@ def buzzer_on():
 def buzzer_off():
 	GPIO.output(gpio["sound"]["buzzer"], 0)
 
-
-
 #ZMIENIC NAZWY -> output ledow
 
 def enable_blind_spot(value):
 	GPIO.output(gpio["blind_spot"]["enable"], value)
-
 
 def enable_front_assist(value):
 	GPIO.output(gpio["front_assist"]["enable"], value)
@@ -89,3 +85,22 @@ def init_distance_sensor(trigger):
 
 def read_state(echo):
 	return GPIO.input(echo)
+
+def read_distance(trigger, echo):
+    GPIO.output(trigger, True)
+    time.sleep(0.00001)
+    GPIO.output(trigger, False)
+
+    while not read_state(echo):
+        pulse_start = time.time()
+
+	#wait for LOW again
+    signalDelay = 0
+    while read_state(echo):
+        pulse_end = time.time()
+        signalDelay = pulse_end - pulse_start
+
+    	#divider for uS to  s
+    constDivider = 1000000/58
+    distance = int(signalDelay * constDivider)
+    return distance

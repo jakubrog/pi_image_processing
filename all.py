@@ -36,7 +36,7 @@ LED_ON = False
 
 
 def blind_spot():
-	dist = distance(pins.BLIND_SPOT_TRIGGER, pins.BLIND_SPOT_ECHO)
+	dist = pins.read_distance(pins.BLIND_SPOT_TRIGGER, pins.BLIND_SPOT_ECHO)
 	if dist < values.MINIMUM_DISTANCE:
 		pins.blind_spot(True)
 	else:
@@ -148,8 +148,9 @@ print("[INFO] Detection started")
 # loop over frames from the video stream
 while True:
 	blind_spot()
-	starting_distance = distance(pins.FRONT_TRIG, pins.FRONT_ECHO)
+	starting_distance = pins.read_distance(pins.FRONT_TRIG, pins.FRONT_ECHO)
 	starting_time = time.time()
+
 	read_state()
 
 	# noinspection PyBroadException
@@ -167,7 +168,7 @@ while True:
 			rects = detector.detectMultiScale(gray, scaleFactor=1.1,
 			minNeighbors=5, minSize=(30, 30),
 				flags=cv2.CASCADE_SCALE_IMAGE)
-
+			print(rects)
 			# loop over the face detections
 			for (x, y, w, h) in rects:
 				# construct a dlib rectangle object from the Haar cascade
@@ -239,16 +240,16 @@ while True:
 
 		if FRONT_ASSIST_ENABLE:
 			current_time = time.time()
-			current_distance = distance(pins.FRONT_TRIG, pins.FRONT_ECHO)
+			current_distance = pins.read_distance(pins.FRONT_TRIG, pins.FRONT_ECHO)
 
 			current_speed = (starting_distance - current_distance) / (current_time - starting_time)
 
 			breaking_distance = current_speed / (2 * values.ACCELERATION)
 
 			if (breaking_distance + values.REACTION_TIME * current_speed) > current_distance:
-				pins.front_assist(1)
+				pins.front_assist(True)
 			else:
-				pins.front_assist(0)
+				pins.front_assist(False)
 
 		if BLIND_SPOT_ENABLE:
 			blind_spot()
