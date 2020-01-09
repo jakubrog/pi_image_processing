@@ -38,7 +38,7 @@ def blind_spot():
 
 def distance(trigger, echo):
 	pins.init_distance_sensor(trigger)
-
+	pulse_start = 0
 	while pins.read_state(echo) == 0:
 		pulse_start = time.time()
 
@@ -140,6 +140,7 @@ if values.DEBBUGING:
 print("[INFO] Detection started")
 # loop over frames from the video stream
 while True:
+
 	blind_spot()
 	starting_distance = pins.read_distance(pins.FRONT_TRIG, pins.FRONT_ECHO)
 	starting_time = time.time()
@@ -151,7 +152,6 @@ while True:
 		# grab the frame from the threaded video file stream, resize
 		# it, and convert it to grayscale
 		# channels)
-
 		frame = vs.read()
 		if DROW_DET_ENABLE:
 			frame = imutils.resize(frame, width=400)
@@ -161,13 +161,14 @@ while True:
 			rects = detector.detectMultiScale(gray, scaleFactor=1.1,
 			minNeighbors=5, minSize=(30, 30),
 				flags=cv2.CASCADE_SCALE_IMAGE)
-			print(rects)
 			# loop over the face detections
 			for (x, y, w, h) in rects:
 				# construct a dlib rectangle object from the Haar cascade
 				# bounding box
 				rect = dlib.rectangle(int(x), int(y), int(x + w),
 					int(y + h))
+
+
 
 				# determine the facial landmarks for the face region, then
 				# convert the facial landmark (x, y)-coordinates to a NumPy
@@ -185,11 +186,16 @@ while True:
 				# average the eye aspect ratio together for both eyes
 				ear = (leftEAR + rightEAR) / 2.0
 
+
 				# compute the convex hull for the left and right eye, then
 				# visualize each of the eyes
 
 				leftEyeHull = cv2.convexHull(leftEye)
 				rightEyeHull = cv2.convexHull(rightEye)
+
+				if values.DEBBUGING:
+						cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
+						cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
 
 				# check to see if the eye aspect ratio is below the blink
 				# threshold, and if so, increment the blink frame counter
@@ -207,11 +213,10 @@ while True:
 							ALARM_ON = True
 							pins.buzzer_on()
 
-
-
 						# draw an alarm on the frame
-						# cv2.putText(frame, "DROWSINESS ALERT!", (10, 30),
-						# 	cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+						if values.DEBBUGING:
+							cv2.putText(frame, "DROWSINESS ALERT!", (10, 30),
+							cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
 				# otherwise, the eye aspect ratio is not below the blink
 				# threshold, so reset the counter and alarm
@@ -222,12 +227,6 @@ while True:
 					pins.buzzer_off()
 					pins.drowsiness_detection(False)
 
-			# draw the computed eye aspect ratio on the frame to help
-			# with debugging and setting the correct eye aspect ratio
-			# thresholds and frame counters
-			# if values.DEBBUGING:
-			# 	cv2.putText(frame, "EAR: {:.3f}".format(ear), (300, 30),
-			# 	cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
 		if FRONT_ASSIST_ENABLE:
 			current_time = time.time()
@@ -245,7 +244,11 @@ while True:
 		if BLIND_SPOT_ENABLE:
 			blind_spot()
 
-	except ValueError:
+		if values.DEBBUGING:
+			cv2.imshow("Frame", frame)
+			key = cv2.waitKey(1) & 0xFF
+
+	except:
 		cv2.destroyAllWindows()
 		pins.gpio_cleanup()
 		vs.stop()
