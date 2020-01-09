@@ -15,13 +15,6 @@ import json
 import pins
 import values
 
-# TODO:
-# 	dodac debuggowanie, if DEBUGOWANIE: show some info, display video
-#	naprawa front assist
-#	refaktoring nazw
-# 	komentarze
-# drow det przycisk cos nie tak
-
 # configuration
 
 FRONT_ASSIST_ENABLE = True
@@ -202,13 +195,11 @@ while True:
 				# threshold, and if so, increment the blink frame counter
 				if ear < values.EYE_AR_THRESH:
 					COUNTER += 1
-
 					# if the eyes were closed for a sufficient number of
 					# frames, then sound the alarm
 					if COUNTER >= values.CLOSED_EYES_LED_FRAMES:
 						if not LED_ON:
 							pins.drowsiness_detection(True)
-
 
 					if COUNTER >= values.CLOSED_EYES_ALARM_FRAMES:
 						# if the alarm is not on, turn it on
@@ -244,7 +235,7 @@ while True:
 
 			current_speed = (starting_distance - current_distance) / (current_time - starting_time)
 
-			breaking_distance = current_speed / (2 * values.ACCELERATION)
+			breaking_distance = current_speed * current_speed / (2 * values.ACCELERATION)
 
 			if (breaking_distance + values.REACTION_TIME * current_speed) > current_distance:
 				pins.front_assist(True)
