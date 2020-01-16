@@ -28,8 +28,6 @@ def buzzer_on():
 def buzzer_off():
 	GPIO.output(gpio["sound"]["buzzer"], 0)
 
-#ZMIENIC NAZWY -> output ledow
-
 def enable_blind_spot(value):
 	GPIO.output(gpio["blind_spot"]["enable"], value)
 
@@ -94,13 +92,11 @@ def read_distance(trigger, echo):
     while not read_state(echo):
         pulse_start = time.time()
 
-	#wait for LOW again
     signalDelay = 0
     while read_state(echo):
         pulse_end = time.time()
         signalDelay = pulse_end - pulse_start
 
-    	#divider for uS to  s
     constDivider = 1000000/58
     distance = int(signalDelay * constDivider)
     return distance

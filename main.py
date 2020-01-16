@@ -1,8 +1,3 @@
-# USAGE
-# python pi_detect_drowsiness.py --cascade haarcascade_frontalface_default.xml --shape-predictor shape_predictor_68_face_landmarks.dat
-# python3 pi_detect_drowsiness.py --cascade haarcascade_frontalface_default.xml --shape-predictor shape_predictor_68_face_landmarks.dat --alarm 1
-
-# import the necessary packages
 from imutils.video import VideoStream
 from imutils import face_utils
 import numpy as np
@@ -16,7 +11,6 @@ import pins
 import values
 
 # configuration
-
 FRONT_ASSIST_ENABLE = False
 BLIND_SPOT_ENABLE = False
 DROW_DET_ENABLE = True
@@ -27,7 +21,7 @@ ALARM_ON = False
 LED_ON = False
 
 
-
+# blind spot monitor
 def blind_spot():
 	dist = pins.read_distance(pins.BLIND_SPOT_TRIGGER, pins.BLIND_SPOT_ECHO)
 	if dist < values.MINIMUM_DISTANCE:
@@ -35,7 +29,7 @@ def blind_spot():
 	else:
 		pins.blind_spot(False)
 
-
+# read distance from sensor
 def distance(trigger, echo):
 	pins.init_distance_sensor(trigger)
 	pulse_start = 0
@@ -64,13 +58,16 @@ def init_pins():
 def euclidean_dist(pointA, pointB):
 	return np.linalg.norm(pointA - pointB)
 
+
 # compute the euclidean distances between the two sets of
 # vertical eye landmarks (x, y)-coordinates
 def eye_aspect_ratio(eye):
+
+	# compute distance between the vertical eye landmark
 	A = euclidean_dist(eye[1], eye[5])
 	B = euclidean_dist(eye[2], eye[4])
 
-	# compute the euclidean distance between the horizontal eye landmark (x, y)
+	# compute distance between the horizontal eye landmark (x, y)
 	C = euclidean_dist(eye[0], eye[3])
 
 	# compute the eye aspect ratio
@@ -79,6 +76,7 @@ def eye_aspect_ratio(eye):
 	# return the eye aspect ratio
 	return ear
 
+# read state of buttons and enable or disable modules
 def read_state():
 	global BUTTON_COUNTER
 	global FRONT_ASSIST_ENABLE
@@ -108,14 +106,11 @@ def read_state():
 
 
 if values.DEBBUGING:
-	print('[INFO] Debugging turned on')
+	print('[WARNING] debugging turned on')
 
-# load OpenCV's Haar cascade for face detection (which is faster than
-# dlib's built-in HOG detector, but less accurate), then create the
-# facial landmark predictor
-
+# start videostream
 vs = VideoStream(src=0).start()
-# vs = VideoStream(src = 0, usePiCamera=True).start()
+
 
 print("[INFO] loading facial landmark predictor...")
 detector = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
@@ -127,21 +122,15 @@ predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 (rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
 
 # start the video stream thread
-print('[INFO] pin init')
+print('[INFO] pins initialization')
 
 init_pins()
 
-if values.DEBBUGING:
-	print("[INFO] starting video stream thread...")
+print("[INFO] detection started")
 
-
-# time to warm up camera
-# time.sleep(10.0)
-print("[INFO] Detection started")
-# loop over frames from the video stream
 while True:
-	if BLIND_SPOT_ENABLE:
-		blind_spot()
+
+	if FRONT_ASSIST_ENABLE:
 		starting_distance = pins.read_distance(pins.FRONT_TRIG, pins.FRONT_ECHO)
 		starting_time = time.time()
 
@@ -149,33 +138,28 @@ while True:
 
 	# noinspection PyBroadException
 	try:
-		# grab the frame from the threaded video file stream, resize
-		# it, and convert it to grayscale
-		# channels)
+
 		frame = vs.read()
 		if DROW_DET_ENABLE:
 			frame = imutils.resize(frame, width=400)
+			# make frame grayscale
 			gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-				# detect faces in the grayscale frame
+			# detect faces in the grayscale frame
 			rects = detector.detectMultiScale(gray, scaleFactor=1.1,
 			minNeighbors=5, minSize=(30, 30),
 				flags=cv2.CASCADE_SCALE_IMAGE)
-			# loop over the face detections
-			print(rects)
+
+			# loop over the face detection
 			for (x, y, w, h) in rects:
 				# construct a dlib rectangle object from the Haar cascade
-				
 				# bounding box
 				rect = dlib.rectangle(int(x), int(y), int(x + w),
 					int(y + h))
 
-
-
-				# determine the facial landmarks for the face region, then
-				# convert the facial landmark (x, y)-coordinates to a NumPy
-				# array
+				# determine the facial landmarks for the face region
 				shape = predictor(gray, rect)
+				# convert coordinates to a NumPy array
 				shape = face_utils.shape_to_np(shape)
 
 				# extract the left and right eye coordinates, then use the
@@ -185,32 +169,29 @@ while True:
 				leftEAR = eye_aspect_ratio(leftEye)
 				rightEAR = eye_aspect_ratio(rightEye)
 
-				# average the eye aspect ratio together for both eyes
+				# average of the eye aspect ratio
 				ear = (leftEAR + rightEAR) / 2.0
 
 
-				# compute the convex hull for the left and right eye, then
-				# visualize each of the eyes
-
-				leftEyeHull = cv2.convexHull(leftEye)
-				rightEyeHull = cv2.convexHull(rightEye)
-
+				# if debugging is on compute the convex hull for both eyes,
+				# then visualize each of them
 				if values.DEBBUGING:
-						cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
-						cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
+					leftEyeHull = cv2.convexHull(leftEye)
+					rightEyeHull = cv2.convexHull(rightEye)
+					cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
+			        cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
 
-				# check to see if the eye aspect ratio is below the blink
-				# threshold, and if so, increment the blink frame counter
+				# check if eyes are closed
 				if ear < values.EYE_AR_THRESH:
 					COUNTER += 1
+
 					# if the eyes were closed for a sufficient number of
-					# frames, then sound the alarm
+					# frames, then turn on led
 					if COUNTER >= values.CLOSED_EYES_LED_FRAMES:
 						if not LED_ON:
 							pins.drowsiness_detection(True)
 
 					if COUNTER >= values.CLOSED_EYES_ALARM_FRAMES:
-						# if the alarm is not on, turn it on
 						if not ALARM_ON:
 							ALARM_ON = True
 							pins.buzzer_on()
@@ -220,8 +201,7 @@ while True:
 							cv2.putText(frame, "DROWSINESS ALERT!", (10, 30),
 							cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
-				# otherwise, the eye aspect ratio is not below the blink
-				# threshold, so reset the counter and alarm
+				# if eyes are open reset
 				else:
 					COUNTER = 0
 					ALARM_ON = False
@@ -232,20 +212,24 @@ while True:
 
 		if FRONT_ASSIST_ENABLE:
 			current_time = time.time()
+			# read current distance from a vehicle ahead
 			current_distance = pins.read_distance(pins.FRONT_TRIG, pins.FRONT_ECHO)
-
+			# compute current speed of the vehicle
 			current_speed = (starting_distance - current_distance) / (current_time - starting_time)
-
+			# compute avaerage breaking distance
 			breaking_distance = current_speed * current_speed / (2 * values.ACCELERATION)
 
+			# if collision is possible, sound the alarm
 			if (breaking_distance + values.REACTION_TIME * current_speed) > current_distance:
 				pins.front_assist(True)
 			else:
 				pins.front_assist(False)
 
+		# check if blind spot is clear
 		if BLIND_SPOT_ENABLE:
 			blind_spot()
 
+		# if Debbuging show image on screen
 		if values.DEBBUGING:
 			cv2.imshow("Frame", frame)
 			key = cv2.waitKey(1) & 0xFF
