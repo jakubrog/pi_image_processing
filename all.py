@@ -17,8 +17,8 @@ import values
 
 # configuration
 
-FRONT_ASSIST_ENABLE = True
-BLIND_SPOT_ENABLE = True
+FRONT_ASSIST_ENABLE = False
+BLIND_SPOT_ENABLE = False
 DROW_DET_ENABLE = True
 BUTTON_COUNTER = 0
 
@@ -140,10 +140,10 @@ if values.DEBBUGING:
 print("[INFO] Detection started")
 # loop over frames from the video stream
 while True:
-
-	blind_spot()
-	starting_distance = pins.read_distance(pins.FRONT_TRIG, pins.FRONT_ECHO)
-	starting_time = time.time()
+	if BLIND_SPOT_ENABLE:
+		blind_spot()
+		starting_distance = pins.read_distance(pins.FRONT_TRIG, pins.FRONT_ECHO)
+		starting_time = time.time()
 
 	read_state()
 
@@ -162,8 +162,10 @@ while True:
 			minNeighbors=5, minSize=(30, 30),
 				flags=cv2.CASCADE_SCALE_IMAGE)
 			# loop over the face detections
+			print(rects)
 			for (x, y, w, h) in rects:
 				# construct a dlib rectangle object from the Haar cascade
+				
 				# bounding box
 				rect = dlib.rectangle(int(x), int(y), int(x + w),
 					int(y + h))
